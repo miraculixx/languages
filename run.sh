@@ -1,12 +1,31 @@
-function run {
-  if [ -f ${3} ]; then
-    echo ""
-    echo "Benchmarking $1"
-    input=`cat input.txt`
-    hyperfine -i --shell=none --runs 3 --warmup 2 "${2} ${3} ${input}" | cut -c1-100
-  fi
+#!/bin/bash
+
+# Function to add a program to the global array
+add() {
+    names+=("$1")
+    programs+=("$2 $3")
 }
 
+# Function to run hyperfine for all programs in the global array
+run() {
+  for name in "${names[@]}"; do
+    hyperfine_name_args+=("-n '$name'")
+  done
+  for program in "${programs[@]}"; do
+    hyperfine_program_args+=("'$program'")
+  done
+  cmd="hyperfine -i --runs 3 --warmup 2 --export-json reports.json "${hyperfine_name_args[@]}" "${hyperfine_program_args[@]}""
+  echo "[INFO] running $cmd"
+  eval $cmd
+}
+
+plot() {
+  echo "[INFO] plotting..."
+  pip install matplotlib
+  python ../create_plot.py reports.json
+}
+
+# specify what to run
 run "Zig" "" "./zig/code"
 run "C" "" "./c/code"
 run "Rust" "" "./rust/target/release/code"
@@ -64,3 +83,8 @@ run "Babashka" "bb" "bb/code.clj"
 #run "Ada" "./ada/code"
 #run "D" "./d/code" # Seems to not have an arm / M1 version
 #run "Java GraalVM" "./jvm.code"
+# run everything
+run
+plot
+
+echo "[INFO] done"
